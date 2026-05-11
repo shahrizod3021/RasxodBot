@@ -57,6 +57,22 @@ public class ChiqimlarService {
         return dailyChiqimRepository.getTotalMiqdorByDateBetween(chatId, startDate, endDate);
     }
 
+    public Double searchingOneChiqim(Long chatId, int year, int month){
+        LocalDate startLocalDate =
+                LocalDate.of(year, month, 1);
+
+        LocalDate endLocalDate =
+                startLocalDate.withDayOfMonth(
+                        startLocalDate.lengthOfMonth()
+                );
+
+        Date startDate =
+                java.sql.Date.valueOf(startLocalDate);
+
+        Date endDate =
+                java.sql.Date.valueOf(endLocalDate);
+        return dailyChiqimRepository.getTotalMiqdorByDateBetween(chatId, startDate, endDate);
+    }
 
 
 

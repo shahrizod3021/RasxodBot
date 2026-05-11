@@ -66,9 +66,28 @@ public class BotCommand {
         InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
         List<InlineKeyboardButton> rowInline = new ArrayList<>();
+        List<InlineKeyboardButton> rowInline1 = new ArrayList<>();
         InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
+        InlineKeyboardButton inlineKeyboardButton1 = new InlineKeyboardButton();
         inlineKeyboardButton.setText("Harajat qildim");
         inlineKeyboardButton.setCallbackData("daily_" + id);
+        inlineKeyboardButton1.setText("Orqaga qaytish");
+        inlineKeyboardButton1.setCallbackData("chiqim");
+        rowInline.add(inlineKeyboardButton);
+        rowInline1.add(inlineKeyboardButton1);
+        rowsInline.add(rowInline);
+        rowsInline.add(rowInline1);
+        inlineKeyboardMarkup.setKeyboard(rowsInline);
+        return inlineKeyboardMarkup;
+    }
+
+    public InlineKeyboardMarkup backToMenu(String text){
+        InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+        List<InlineKeyboardButton> rowInline = new ArrayList<>();
+        InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
+        inlineKeyboardButton.setText("Orqaga ");
+        inlineKeyboardButton.setCallbackData(text);
         rowInline.add(inlineKeyboardButton);
         rowsInline.add(rowInline);
         inlineKeyboardMarkup.setKeyboard(rowsInline);
@@ -80,6 +99,12 @@ public class BotCommand {
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();
         List<InlineKeyboardButton> currentRow = new ArrayList<>();
         User usersByChatId = authRepository.findUsersByChatId(chatId);
+        InlineKeyboardButton button2 = new InlineKeyboardButton();
+        InlineKeyboardButton button = new InlineKeyboardButton();
+        button.setText("Qidirish");
+        button.setCallbackData("searchForChiqim");
+        button2.setText("Asosiy menu");
+        button2.setCallbackData("backToMenu");
         int count = 0;
         for (Chiqimlar chiqimlar : usersByChatId.getChiqimlars()) {
             InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
@@ -94,6 +119,11 @@ public class BotCommand {
             }
         }
         if (!currentRow.isEmpty()) {
+            currentRow.add(button);
+            rows.add(currentRow);
+        }else {
+            currentRow.add(button);
+            currentRow.add(button2);
             rows.add(currentRow);
         }
         inlineKeyboardMarkup.setKeyboard(rows);
@@ -105,9 +135,13 @@ public class BotCommand {
        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
        List<InlineKeyboardButton> currentRow = new ArrayList<>();
        InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
+       InlineKeyboardButton inlineKeyboardButton1 = new InlineKeyboardButton();
        inlineKeyboardButton.setText("Vaht bilan qidirish");
        inlineKeyboardButton.setCallbackData("searchWithdate");
+       inlineKeyboardButton1.setText("Orqaga qaytish");
+       inlineKeyboardButton1.setCallbackData("backToMenu");
        currentRow.add(inlineKeyboardButton);
+       currentRow.add(inlineKeyboardButton1);
        rows.add(currentRow);
        inlineKeyboardMarkup.setKeyboard(rows);
        return inlineKeyboardMarkup;

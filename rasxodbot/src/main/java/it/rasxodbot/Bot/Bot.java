@@ -19,11 +19,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
-import org.telegram.telegrambots.meta.api.objects.Contact;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
 import java.text.DecimalFormat;
@@ -50,10 +49,6 @@ public class Bot extends TelegramLongPollingBot {
 
     private final UserService userService;
 
-    Map<Long, String> name = new HashMap<>();
-
-    Map<Long, String> phoneNumber = new HashMap<>();
-
     private final Map<Long, UserState> userState = new HashMap<>();
 
     private final Map<Long, Kirim> userKirimlari = new HashMap<>();
@@ -64,11 +59,11 @@ public class Bot extends TelegramLongPollingBot {
     private final Map<Long, User> userMap = new HashMap<>();
 
     Map<Long, Search> searchForKirim = new HashMap<>();
+
+    Map<Long, Search> searchForChiqim = new HashMap<>();
     Map<Long, String> callBackId = new HashMap<>();
 
     Map<Long, Integer> expense = new HashMap<>();
-
-    Map<Long, String> isRegister = new HashMap<>();
 
     @Override
     public void clearWebhook() throws TelegramApiRequestException {
@@ -127,7 +122,7 @@ public class Bot extends TelegramLongPollingBot {
                     kirim.setName(text);
                     kirim.setVahti(new Date());
                     kirimService.kirim(chatId, kirim);
-                    execute(sendMessage.sendMessage("Pul kiritldi", chatId));
+                    execute(sendMessage.sendMessage("Pul kiritldi", chatId, botCommand.backToMenu("backToMenu")));
                     userState.remove(chatId);
                     userKirimlari.remove(chatId);
                 }
@@ -135,7 +130,7 @@ public class Bot extends TelegramLongPollingBot {
                     Chiqimlar chiqimlar = userChiqimlari.get(chatId);
                     chiqimlar.setName(text);
                     chiqimlarService.chiqim(chatId, chiqimlar.getName());
-                    execute(sendMessage.sendMessage("Harajat turi saqlandi", chatId, botCommand.menu()));
+                    execute(sendMessage.sendMessage("Harajat turi saqlandi", chatId, botCommand.backToMenu("backToMenu")));
                     userState.remove(chatId);
                     userChiqimlari.remove(chatId);
                 }
@@ -147,7 +142,7 @@ public class Bot extends TelegramLongPollingBot {
                         dailyChiqimlar.setVahti(new Date());
                         dailyChiqimlar.setChiqimlar(chiqimlarRepository.findById(expense.get(chatId)).orElseThrow());
                         String s = chiqimlarService.AddDailyChiqim(dailyChiqimlar, chatId);
-                        execute(sendMessage.sendMessage(s, chatId));
+                        execute(sendMessage.sendMessage(s, chatId, botCommand.backToMenu("expense_" + expense.get(chatId))));
                         userState.remove(chatId);
                         dailyChiqimlarMap.remove(chatId);
                         expense.remove(chatId);
@@ -159,15 +154,7 @@ public class Bot extends TelegramLongPollingBot {
                     Search search = searchForKirim.get(chatId);
                     search.setSearch(text);
                     if (!search.getSearch().matches("\\d{4}-\\d{2}")) {
-                        execute(SendMessage.builder()
-                                .chatId(chatId.toString())
-                                .text("""
-                                        ❌ Noto‘g‘ri format!
-
-                                        To‘g‘ri format:
-                                        2026-12
-                                        """)
-                                .build());
+                        execute(sendMessage.sendMessage("Siz kiritgan format noto'g'ri\n❌Siz kiritgan format: " + text + "\n✅To'gri format: 2026-12", chatId));
                     } else {
                         String[] parts = search.getSearch().split("-");
                         int year = Integer.parseInt(parts[0]);
@@ -179,24 +166,47 @@ public class Bot extends TelegramLongPollingBot {
                             execute(sendMessage.sendMessage("Ushbu oyda kirimlar bo'lmagan ❌", chatId));
                         } else {
                             for (Kirim kirim : OneMonthsKirim) {
-                                builder.append("Miqdor: ")
+                                builder.append("▪️ Miqdor: ")
                                         .append(FNumberToText(kirim.getMiqdor()))
                                         .append(" so'm\n");
 
-                                builder.append("Sabab: ")
+                                builder.append("   Sabab: ")
                                         .append(kirim.getName())
                                         .append("\n");
 
-                                builder.append("Vahti: ")
+                                builder.append("   Vahti: ")
                                         .append(kirim.getVahti().toString(), 0, 19)
                                         .append("\n\n");
                             }
                             builder.append("💰 Ushbu oydagi umumiy kirimlar summasi: ")
                                     .append(FNumberToText(v))
                                     .append(" so'm");
-                            execute(sendMessage.sendMessage(builder.toString(), chatId));
+                            execute(sendMessage.sendMessage(builder.toString(), chatId, botCommand.backToMenu("kirim")));
                             userState.remove(chatId);
                             searchForKirim.remove(chatId);
+                        }
+                    }
+                }
+                if (state == UserState.WAITING_SEARCH_CHIQIM){
+                    Search search = searchForChiqim.get(chatId);
+                    search.setSearch(text);
+                    if (!search.getSearch().matches("\\d{4}-\\d{2}")) {
+                        execute(sendMessage.sendMessage("Siz kiritgan format noto'g'ri\n❌Siz kiritgan format: " + text + "\n✅To'gri format: 2026-12", chatId));
+                    } else {
+                        String[] parts = search.getSearch().split("-");
+                        int year = Integer.parseInt(parts[0]);
+                        int month = Integer.parseInt(parts[1]);
+                        Double v = chiqimlarService.searchingOneChiqim(chatId, year, month);
+                        StringBuilder builder = new StringBuilder();
+                        if (v == null) {
+                            execute(sendMessage.sendMessage("Ushbu oyda harajatlar bo'lmagan ❌", chatId));
+                        } else {
+                            builder.append("💰 Ushbu oydagi umumiy harajatlaringiz summasi: ")
+                                    .append(FNumberToText(v))
+                                    .append(" so'm");
+                            execute(sendMessage.sendMessage(builder.toString(), chatId, botCommand.backToMenu("chiqim")));
+                            userState.remove(chatId);
+                            searchForChiqim.remove(chatId);
                         }
                     }
                 }
@@ -232,49 +242,50 @@ public class Bot extends TelegramLongPollingBot {
             String data = callbackQuery.getData();
             String id = callbackQuery.getId();
             Long chatId = callbackQuery.getMessage().getChatId();
+            Integer messageId = callbackQuery.getMessage().getMessageId();
             if (data.equals("put")) {
                 userKirimlari.put(chatId, new Kirim());
                 userState.put(chatId, UserState.WAITING_KIRIM_MIQDOR);
-                execute(sendMessage.sendMessage("Qancha pul kiritasiz.\nMisol uchun: 100000", chatId));
+                execute(sendMessage.editMessage("Qancha pul kiritasiz.\nMisol uchun: 100000", chatId, messageId));
                 callBackId.put(chatId, id);
             } else if (data.equals("get")) {
                 userChiqimlari.put(chatId, new Chiqimlar());
                 userState.put(chatId, UserState.WAITING_CHIQIM_NOMI);
-                execute(sendMessage.sendMessage("Harajat nomini kiriting", chatId));
+                execute(sendMessage.editMessage("Harajat nomini kiriting", chatId, messageId));
             } else if (data.equals("chiqim")) {
                 User usersByChatId = authRepository.findUsersByChatId(chatId);
                 if (!usersByChatId.getChiqimlars().isEmpty()) {
                     Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(chatId);
                     Double lastmonthchiqim = chiqimlarService.lastmonthchiqim(chatId);
                     Double allMiqdorByChatId = dailyChiqimRepository.getAllMiqdorByChatId(chatId);
-                    execute(sendMessage.sendMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\nUmumiy harajatlar:" + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId, botCommand.chiqimlar(chatId)));
+                    execute(sendMessage.editMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\nUmumiy harajatlar: " + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId, messageId, botCommand.chiqimlar(chatId)));
                 } else {
-                    execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId));
+                    execute(sendMessage.editMessage("Sizda harajatlar yo'q", chatId, messageId, botCommand.backToMenu("backToMenu")));
                 }
             } else if (data.startsWith("expense_")) {
                 Integer expenseId = Integer.parseInt(
                         data.replace("expense_", "")
                 );
                 Chiqimlar oneChiqim = chiqimlarService.getOneChiqim(expenseId);
-                execute(sendMessage.sendMessage("Siz " + oneChiqim.getName() + " bo'limini tanladingiz\nEslatma‼️‼️: faqatgina shu oydagi harajatlarni ro'yhatini ko'ra olasiz 🗓️", chatId));
                 List<DailyChiqimlar> daily = dailyChiqimRepository.findAllByChiqimlarId(expenseId);
                 StringBuilder text = new StringBuilder();
                 text.append("📂 ")
                         .append(oneChiqim.getName())
-                        .append(" bo‘limidagi harajatlar:\n\n");
-
+                        .append(" bo‘limidagi harajatlar:\n\nEslatma‼️‼️: faqatgina shu oydagi harajatlarni ro'yhatini ko'ra olasiz 🗓️\n\n");
                 if (daily.isEmpty()) {
                     text.append("Harajatlar mavjud emas.");
                 } else {
                     for (DailyChiqimlar expense : daily) {
                         text.append("▪️ ")
+                                .append("Harajat qilingan vahti: ")
                                 .append(expense.getVahti().toString(), 0, 19)
-                                .append(" - ")
+                                .append("\n")
+                                .append("   Harajat summasi: ")
                                 .append(FNumberToText(expense.getMiqdor()))
-                                .append(" so‘m\n");
+                                .append(" so‘m\n\n");
                     }
                 }
-                execute(sendMessage.sendMessage(text.toString(), chatId, botCommand.addDailyChiqim(expenseId)));
+                execute(sendMessage.editMessage(text.toString(), chatId, messageId, botCommand.addDailyChiqim(expenseId)));
             } else if (data.startsWith("daily_")) {
                 dailyChiqimlarMap.put(chatId, new DailyChiqimlar());
                 userState.put(chatId, UserState.WAITING_DAILY_MIQDOR);
@@ -282,7 +293,7 @@ public class Bot extends TelegramLongPollingBot {
                         data.replace("daily_", "")
                 );
                 expense.put(chatId, expenseId);
-                execute(sendMessage.sendMessage("Miqdorni kiriting", chatId));
+                execute(sendMessage.editMessage("Miqdorni kiriting", chatId, messageId));
             } else if (data.equals("kirim")) {
                 User usersByChatId = authRepository.findUsersByChatId(chatId);
                 List<Kirim> kirims = usersByChatId.getKirims();
@@ -295,17 +306,24 @@ public class Bot extends TelegramLongPollingBot {
                     text.append("📈Ushbu oydagi umumiy kirimlar: ").append(FNumberToText(totalMiqdorByUserId)).append(" so'm\n\n");
                     text.append("📈O'tgan oydagi umumiy kirimlar: ").append(FNumberToText(v)).append(" so'm");
                 }
-                execute(sendMessage.sendMessage(text.toString(), chatId, botCommand.searchKirimButton()));
+                execute(sendMessage.editMessage(text.toString(), chatId, messageId, botCommand.searchKirimButton()));
             } else if (data.equals("searchWithdate")) {
                 userState.put(chatId, UserState.WAITING_SEARCH);
                 searchForKirim.put(chatId, new Search());
                 execute(sendMessage.sendMessage("Yil va oyni kiriting 🗓️\n\nMisol uchun: 2026-12", chatId));
             } else if (data.equals("account")) {
                 User usersByChatId = authRepository.findUsersByChatId(chatId);
-                execute(sendMessage.sendMessage("Salom 👋" + usersByChatId.getName() +"\n " +
+                execute(sendMessage.editMessage("Salom 👋" + usersByChatId.getName() +"\n " +
                         "\nAccount ma'lumotlaringiz\n" + "Ism🧾: " + usersByChatId.getName() +
                         "\nTelefon raqam📱: " + usersByChatId.getPhoneNumber() +
-                        "\nShu paytgacha daromad💸: " + FNumberToText(usersByChatId.getTotalPay()), chatId));
+                        "\nShu paytgacha daromad💸: " + FNumberToText(usersByChatId.getTotalPay()), chatId, messageId, botCommand.backToMenu("backToMenu")));
+            }else if (data.equals("searchForChiqim")){
+                userState.put(chatId, UserState.WAITING_SEARCH_CHIQIM);
+                searchForChiqim.put(chatId, new Search());
+                execute(sendMessage.sendMessage("Yil va oyni kiriting va men sizga siz xoxlagan vahtdagi harajatlaringizni chiqarib beraman 🗓️\n\nMisol uchun: 2026-12", chatId));
+            }
+            else if (data.equals("backToMenu")){
+                execute(sendMessage.editMessage("Asosiy bo'lim", chatId, messageId, botCommand.menu()));
             }
         }
     }

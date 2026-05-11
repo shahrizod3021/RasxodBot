@@ -17,5 +17,8 @@ public enum UserState {
     WAITING_DAILY_MIQDOR,
 
     // ===== SEARCH =====
-    WAITING_SEARCH
+    WAITING_SEARCH,
+
+    // ===== SEARCH_FOR_CHIQIM =====
+    WAITING_SEARCH_CHIQIM
 }
