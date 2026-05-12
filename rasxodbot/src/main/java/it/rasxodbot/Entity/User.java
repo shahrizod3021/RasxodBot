@@ -33,6 +33,9 @@ public class User extends AbsEntity {
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "user")
     private List<Kirim> kirims;
 
+    @Column(name = "notification_time")
+    private String notificationTime;
+
     private Double totalPay;
 
 }

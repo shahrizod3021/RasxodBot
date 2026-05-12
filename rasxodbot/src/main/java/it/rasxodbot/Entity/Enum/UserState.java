@@ -16,9 +16,14 @@ public enum UserState {
     // ===== DAILY_CHIQIM =====
     WAITING_DAILY_MIQDOR,
 
+    WAITING_DAILY_DESCRIPTION,
+
     // ===== SEARCH =====
     WAITING_SEARCH,
 
     // ===== SEARCH_FOR_CHIQIM =====
-    WAITING_SEARCH_CHIQIM
+    WAITING_SEARCH_CHIQIM,
+
+    // ===== SET_NOTIFICATION_TIME =====
+    WAITING_NOTIFICATION_TIME
 }

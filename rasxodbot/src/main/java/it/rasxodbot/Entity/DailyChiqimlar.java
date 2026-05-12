@@ -24,6 +24,9 @@ public class DailyChiqimlar {
     @Column(name = "vahti", nullable = false)
     private Date vahti;
 
+    @Column(name = "description")
+    private String description;
+
     @ManyToOne
     private Chiqimlar chiqimlar;
 

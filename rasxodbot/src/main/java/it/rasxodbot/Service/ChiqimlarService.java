@@ -10,6 +10,7 @@ import it.rasxodbot.Repositories.KirimRepositrory;
 import jakarta.ws.rs.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 
 import java.time.LocalDate;
 import java.util.Date;
@@ -19,13 +20,11 @@ import java.util.Date;
 public class ChiqimlarService {
 
     private final ChiqimlarRepository chiqimlarRepository;
-    private final KirimRepositrory kirimRepositrory;
     private final AuthRepository authRepository;
     private final DailyChiqimRepository dailyChiqimRepository;
 
 
-
-    public void chiqim(Long chatId, String why){
+    public void chiqim(Long chatId, String why) {
         User usersByChatId = authRepository.findUsersByChatId(chatId);
         Chiqimlar build = Chiqimlar.builder()
                 .name(why)
@@ -34,16 +33,15 @@ public class ChiqimlarService {
         Chiqimlar save = chiqimlarRepository.save(build);
         usersByChatId.getChiqimlars().add(save);
         authRepository.save(usersByChatId);
-
     }
 
-    public String AddDailyChiqim(DailyChiqimlar dailyChiqimlar, Long chatId){
+    public String AddDailyChiqim(DailyChiqimlar dailyChiqimlar, Long chatId) {
         dailyChiqimlar.setUser(authRepository.findUsersByChatId(chatId));
         dailyChiqimRepository.save(dailyChiqimlar);
         return "Saqlandi";
     }
 
-    public Double lastmonthchiqim (Long chatId) {
+    public Double lastmonthchiqim(Long chatId) {
         LocalDate now = LocalDate.now();
 
         LocalDate firstDayOfLastMonth =
@@ -57,7 +55,7 @@ public class ChiqimlarService {
         return dailyChiqimRepository.getTotalMiqdorByDateBetween(chatId, startDate, endDate);
     }
 
-    public Double searchingOneChiqim(Long chatId, int year, int month){
+    public Double searchingOneChiqim(Long chatId, int year, int month) {
         LocalDate startLocalDate =
                 LocalDate.of(year, month, 1);
 
@@ -74,9 +72,17 @@ public class ChiqimlarService {
         return dailyChiqimRepository.getTotalMiqdorByDateBetween(chatId, startDate, endDate);
     }
 
+    public void deleteDailyChqimlar(Integer chiqimId) {
+        if (dailyChiqimRepository.existsByChiqimId(chiqimId)) {
+            dailyChiqimRepository.deleteDailyChiqim(chiqimId);
+            chiqimlarRepository.deleteById(chiqimId);
+        }else {
+            chiqimlarRepository.deleteById(chiqimId);
+        }
+    }
 
 
-    public Chiqimlar getOneChiqim(Integer id){
+    public Chiqimlar getOneChiqim(Integer id) {
         return chiqimlarRepository.findById(id).orElseThrow(NotFoundException::new);
     }
 }

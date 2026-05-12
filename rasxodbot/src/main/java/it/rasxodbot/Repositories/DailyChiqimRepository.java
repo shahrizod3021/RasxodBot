@@ -1,8 +1,9 @@
 package it.rasxodbot.Repositories;
 
 import it.rasxodbot.Entity.DailyChiqimlar;
-import org.hibernate.persister.entity.SingleTableEntityPersister;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -49,4 +50,20 @@ public interface DailyChiqimRepository extends JpaRepository<DailyChiqimlar, Int
             order by d.vahti desc
             """)
     List<DailyChiqimlar> findAllByChiqimlarId(Integer id);
+
+    @Transactional
+    @Modifying
+    @Query("""
+       delete from DailyChiqimlar d
+       where d.chiqimlar.id = :chiqimId
+       """)
+    void deleteDailyChiqim(@Param("chiqimId") Integer id);
+
+    @Query("""
+       select count(d) > 0
+       from DailyChiqimlar d
+       where d.chiqimlar.id = :chiqimId
+       """)
+    Boolean existsByChiqimId(
+            @Param("chiqimId") Integer chiqimId);
 }
