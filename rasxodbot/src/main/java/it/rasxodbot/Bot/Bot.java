@@ -160,8 +160,9 @@ public class Bot extends TelegramLongPollingBot {
                             textTo.append("📈O'tgan oydagi umumiy kirimlar: ").append(FNumberToText(v)).append(" so'm");
                         }
                         execute(sendMessage.sendMessage(textTo.toString(), chatId,  botCommand.searchKirimButton()));
+                    }else {
+                        execute(sendMessage.sendMessage("Avval ro'yhatdan o'ting", chatId));
                     }
-                    execute(sendMessage.sendMessage("Avval ro'yhatdan o'ting", chatId));
                 }
                 if (text.equals("/chiqim")){
                     if (authRepository.existsUserByChatId(chatId)){
