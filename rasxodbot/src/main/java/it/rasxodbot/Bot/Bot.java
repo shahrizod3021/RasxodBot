@@ -118,6 +118,7 @@ public class Bot extends TelegramLongPollingBot {
                 }
                 if (text.equals("/kirim@oylikrasxodlar_bot")){
                     Long id1 = update.getMessage().getFrom().getId();
+                    userState.put(chatId, UserState.NONE);
                     if (authRepository.existsUserByChatId(id1)){
                         User usersByChatId = authRepository.findUsersByChatId(id1);
                         List<Kirim> kirims = usersByChatId.getKirims();
@@ -137,6 +138,8 @@ public class Bot extends TelegramLongPollingBot {
                 }
                 if (text.equals("/chiqim@oylikrasxodlar_bot")) {
                     Long id1 = update.getMessage().getFrom().getId();
+                    userState.put(chatId, UserState.NONE);
+
                     if (!authRepository.existsUserByChatId(id1)) {
                         execute(sendMessage.sendMessage("Siz hali botdan ro'yhatdan o'tmagansiz‼️‼️", chatId, message.getMessageId(), botCommand.LinkToBot()));
                     }else {
@@ -153,6 +156,7 @@ public class Bot extends TelegramLongPollingBot {
                 }
                 if (text.equals("/kirim")){
                     Long id1 = update.getMessage().getFrom().getId();
+                    userState.put(chatId, UserState.NONE);
                     if (authRepository.existsUserByChatId(chatId)){
                         User usersByChatId = authRepository.findUsersByChatId(chatId);
                         List<Kirim> kirims = usersByChatId.getKirims();
@@ -167,7 +171,18 @@ public class Bot extends TelegramLongPollingBot {
                         }
                         execute(sendMessage.sendMessage(textTo.toString(), chatId,  botCommand.searchKirimButton()));
                     }else if ( authRepository.existsUserByChatId(id1)){
-                        execute(sendMessage.sendMessage("Bunday buyrug' turini bilmas ekanman qaytadan urinib ko'ring", chatId, message.getMessageId(), botCommand.LinkToBot()));
+                        User usersByChatId = authRepository.findUsersByChatId(id1);
+                        List<Kirim> kirims = usersByChatId.getKirims();
+                        Double v = kirimService.lastMonthKirim(id1);
+                        Double totalMiqdorByUserId = kirimRepositrory.getTotalMiqdorByUserId(id1);
+                        StringBuilder textTo = new StringBuilder();
+                        if (kirims.isEmpty()) {
+                            textTo.append("Sizda kirimlar mavjud emas😔");
+                        } else {
+                            textTo.append("📈Ushbu oydagi umumiy kirimlar: ").append(FNumberToText(totalMiqdorByUserId)).append(" so'm\n\n");
+                            textTo.append("📈O'tgan oydagi umumiy kirimlar: ").append(FNumberToText(v)).append(" so'm");
+                        }
+                        execute(sendMessage.sendMessage(textTo.toString(), chatId,  botCommand.LinkToBot()));
                     }else {
                         execute(sendMessage.sendMessage("Avval ro'yhatdan o'ting", chatId));
                     }
@@ -185,7 +200,15 @@ public class Bot extends TelegramLongPollingBot {
                             execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId,  botCommand.backToMenu("backToMenu")));
                         }
                     }else if ( authRepository.existsUserByChatId(id1)){
-                        execute(sendMessage.sendMessage("Bunday buyrug' turini bilmas ekanman qaytadan urinib ko'ring", chatId, message.getMessageId(), botCommand.LinkToBot()));
+                        List<Chiqimlar> chiqimlarByUserChatId = chiqimlarRepository.getChiqimlarByUserChatId(id1);
+                        if (!chiqimlarByUserChatId.isEmpty()) {
+                            Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(id1);
+                            Double lastmonthchiqim = chiqimlarService.lastmonthchiqim(id1);
+                            Double allMiqdorByChatId = dailyChiqimRepository.getAllMiqdorByChatId(id1);
+                            execute(sendMessage.sendMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\nUmumiy harajatlar: " + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId,  botCommand.LinkToBot()));
+                        } else {
+                            execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId,  botCommand.LinkToBot()));
+                        }
                     }else {
                         execute(sendMessage.sendMessage("Avval ro'yhatdan o'ting", chatId));
                     }
