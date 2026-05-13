@@ -122,7 +122,7 @@ public class Bot extends TelegramLongPollingBot {
                         User usersByChatId = authRepository.findUsersByChatId(id1);
                         List<Kirim> kirims = usersByChatId.getKirims();
                         Double v = kirimService.lastMonthKirim(id1);
-                        Double totalMiqdorByUserId = kirimRepositrory.getTotalMiqdorByUserId(chatId);
+                        Double totalMiqdorByUserId = kirimRepositrory.getTotalMiqdorByUserId(id1);
                         StringBuilder textTo = new StringBuilder();
                         if (kirims.isEmpty()) {
                             textTo.append("Sizda kirimlar mavjud emas😔");
