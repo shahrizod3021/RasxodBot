@@ -1,11 +1,8 @@
 package it.rasxodbot.Bot;
 
 import it.rasxodbot.Config.BotConfig;
-import it.rasxodbot.Entity.Chiqimlar;
-import it.rasxodbot.Entity.DailyChiqimlar;
+import it.rasxodbot.Entity.*;
 import it.rasxodbot.Entity.Enum.UserState;
-import it.rasxodbot.Entity.Kirim;
-import it.rasxodbot.Entity.User;
 import it.rasxodbot.Repo.Notification;
 import it.rasxodbot.Repo.Search;
 import it.rasxodbot.Repositories.AuthRepository;
@@ -42,6 +39,7 @@ public class Bot extends TelegramLongPollingBot {
     private final DailyChiqimRepository dailyChiqimRepository;
     private final KirimRepositrory kirimRepositrory;
     private final KirimService kirimService;
+    private final GroupService groupService;
     private final ChiqimlarRepository chiqimlarRepository;
     private static final Logger LOGGER = LoggerFactory.getLogger(Bot.class);
 
@@ -98,6 +96,14 @@ public class Bot extends TelegramLongPollingBot {
                             chatId,
                             UserState.NONE
                     );
+            if (message.getNewChatMembers() != null){
+                for (org.telegram.telegrambots.meta.api.objects.User member : message.getNewChatMembers()) {
+                    if (member.getUserName().equals("oylikrasxodlar_bot")){
+                        SendMessage msgToGroup = groupService.saveGroup(chatId, message.getChat().getTitle());
+                        execute(msgToGroup);
+                    }
+                }
+            }
             if (message.hasText()) {
                 if (text.equals("/start")) {
                     if (!authRepository.existsUserByChatId(chatId)) {
@@ -112,7 +118,6 @@ public class Bot extends TelegramLongPollingBot {
                 }
                 if (text.equals("/kirim@oylikrasxodlar_bot")){
                     Long id1 = update.getMessage().getFrom().getId();
-
                     if (authRepository.existsUserByChatId(id1)){
                         User usersByChatId = authRepository.findUsersByChatId(id1);
                         List<Kirim> kirims = usersByChatId.getKirims();
@@ -147,6 +152,7 @@ public class Bot extends TelegramLongPollingBot {
                     }
                 }
                 if (text.equals("/kirim")){
+                    Long id1 = update.getMessage().getFrom().getId();
                     if (authRepository.existsUserByChatId(chatId)){
                         User usersByChatId = authRepository.findUsersByChatId(chatId);
                         List<Kirim> kirims = usersByChatId.getKirims();
@@ -160,12 +166,15 @@ public class Bot extends TelegramLongPollingBot {
                             textTo.append("📈O'tgan oydagi umumiy kirimlar: ").append(FNumberToText(v)).append(" so'm");
                         }
                         execute(sendMessage.sendMessage(textTo.toString(), chatId,  botCommand.searchKirimButton()));
+                    }else if ( authRepository.existsUserByChatId(id1)){
+                        execute(sendMessage.sendMessage("Bunday buyrug' turini bilmas ekanman qaytadan urinib ko'ring", chatId, message.getMessageId(), botCommand.LinkToBot()));
                     }else {
                         execute(sendMessage.sendMessage("Avval ro'yhatdan o'ting", chatId));
                     }
                 }
                 if (text.equals("/chiqim")){
-                    if (authRepository.existsUserByChatId(chatId)){
+                    Long id1 = update.getMessage().getFrom().getId();
+                    if (authRepository.existsUserByChatId(chatId) ){
                         List<Chiqimlar> chiqimlarByUserChatId = chiqimlarRepository.getChiqimlarByUserChatId(chatId);
                         if (!chiqimlarByUserChatId.isEmpty()) {
                             Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(chatId);
@@ -175,6 +184,8 @@ public class Bot extends TelegramLongPollingBot {
                         } else {
                             execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId,  botCommand.backToMenu("backToMenu")));
                         }
+                    }else if ( authRepository.existsUserByChatId(id1)){
+                        execute(sendMessage.sendMessage("Bunday buyrug' turini bilmas ekanman qaytadan urinib ko'ring", chatId, message.getMessageId(), botCommand.LinkToBot()));
                     }else {
                         execute(sendMessage.sendMessage("Avval ro'yhatdan o'ting", chatId));
                     }
@@ -335,6 +346,7 @@ public class Bot extends TelegramLongPollingBot {
                 }
 
             }
+
         } else if (update.hasCallbackQuery()) {
             String data = callbackQuery.getData();
             String id = callbackQuery.getId();
@@ -464,6 +476,14 @@ public class Bot extends TelegramLongPollingBot {
             if (format.equals(user.getNotificationTime())) {
                 execute(sendMessage.sendMessage("👋Salom " + user.getName() + "\n\nPullaringizni hisobini olish vahti keldi😎💸", user.getChatId(), botCommand.menu()));
             }
+        }
+    }
+
+    @Scheduled(cron = "0 0 12 * * *", zone = "Asia/Tashkent")
+    @SneakyThrows
+    public void senMsgToGroup(){
+        for (Group group : groupService.findAll()) {
+            execute(sendMessage.sendMessage("👋 Hayrli kun " + group.getGroupName() + " a'zolari\n" + " \uD83C\uDF7D Tushlik vahti bo'ldi \uD83D\uDE04 \n\nShu bilan birgalikda bugungi harajatlaringizni kiritishni unutmang😎", group.getGroupId(), botCommand.LinkToBot()));
         }
     }
 }
