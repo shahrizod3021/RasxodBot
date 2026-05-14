@@ -21,11 +21,11 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.List;
 
@@ -41,6 +41,7 @@ public class Bot extends TelegramLongPollingBot {
     private final KirimService kirimService;
     private final GroupService groupService;
     private final ChiqimlarRepository chiqimlarRepository;
+
     private static final Logger LOGGER = LoggerFactory.getLogger(Bot.class);
 
     private final BotCommand botCommand;
@@ -53,6 +54,8 @@ public class Bot extends TelegramLongPollingBot {
 
     private final Map<Long, Kirim> userKirimlari = new HashMap<>();
     private final Map<Long, Chiqimlar> userChiqimlari = new HashMap<>();
+    private final Map<Long, Notification> sendTo = new HashMap<>();
+
 
     private final Map<Long, DailyChiqimlar> dailyChiqimlarMap = new HashMap<>();
     private final Map<Long, Notification> notificationMap = new HashMap<>();
@@ -96,9 +99,14 @@ public class Bot extends TelegramLongPollingBot {
                             chatId,
                             UserState.NONE
                     );
-            if (message.getNewChatMembers() != null){
+            if (message.getMigrateToChatId() != null) {
+                Long newChatId = message.getMigrateToChatId();
+                Long oldChatId = message.getMigrateFromChatId();
+                groupService.setUpNewChatId(oldChatId, newChatId);
+            }
+            if (message.getNewChatMembers() != null) {
                 for (org.telegram.telegrambots.meta.api.objects.User member : message.getNewChatMembers()) {
-                    if (member.getUserName().equals("oylikrasxodlar_bot")){
+                    if (member.getUserName().equals("oylikrasxodlar_bot")) {
                         SendMessage msgToGroup = groupService.saveGroup(chatId, message.getChat().getTitle());
                         execute(msgToGroup);
                     }
@@ -112,14 +120,18 @@ public class Bot extends TelegramLongPollingBot {
                         SendMessage sendMessage = SendMessage.builder().chatId(chatId).text("Salom ismingizni kiriting").build();
                         execute(sendMessage);
                     } else {
-                        userState.put(chatId, UserState.NONE);
+                        state = UserState.NONE;
                         execute(sendMessage.sendMessage("Salom, bo'limni tanlang", chatId, botCommand.menu()));
                     }
                 }
-                if (text.equals("/kirim@oylikrasxodlar_bot")){
+                if (text.equals("/sendto")) {
+                    execute(sendMessage.sendMessage("pls enter the true code", chatId));
+                    userState.put(chatId, UserState.WAITING_TRUE_CODE);
+                    sendTo.put(chatId, new Notification());
+                }
+                if (text.equals("/kirim@oylikrasxodlar_bot")) {
                     Long id1 = update.getMessage().getFrom().getId();
-                    userState.put(chatId, UserState.NONE);
-                    if (authRepository.existsUserByChatId(id1)){
+                    if (authRepository.existsUserByChatId(id1)) {
                         User usersByChatId = authRepository.findUsersByChatId(id1);
                         List<Kirim> kirims = usersByChatId.getKirims();
                         Double v = kirimService.lastMonthKirim(id1);
@@ -132,17 +144,15 @@ public class Bot extends TelegramLongPollingBot {
                             textTo.append("📈O'tgan oydagi umumiy kirimlar: ").append(FNumberToText(v)).append(" so'm");
                         }
                         execute(sendMessage.sendMessage(textTo.toString(), chatId, message.getMessageId(), botCommand.LinkToBot()));
-                    }else {
+                    } else {
                         execute(sendMessage.sendMessage("Siz hali botdan ro'yhatdan o'tmagansiz‼️‼️", chatId, message.getMessageId(), botCommand.LinkToBot()));
                     }
                 }
                 if (text.equals("/chiqim@oylikrasxodlar_bot")) {
                     Long id1 = update.getMessage().getFrom().getId();
-                    userState.put(chatId, UserState.NONE);
-
                     if (!authRepository.existsUserByChatId(id1)) {
                         execute(sendMessage.sendMessage("Siz hali botdan ro'yhatdan o'tmagansiz‼️‼️", chatId, message.getMessageId(), botCommand.LinkToBot()));
-                    }else {
+                    } else {
                         List<Chiqimlar> chiqimlarByUserChatId = chiqimlarRepository.getChiqimlarByUserChatId(id1);
                         if (!chiqimlarByUserChatId.isEmpty()) {
                             Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(id1);
@@ -154,10 +164,9 @@ public class Bot extends TelegramLongPollingBot {
                         }
                     }
                 }
-                if (text.equals("/kirim")){
+                if (text.equals("/kirim")) {
                     Long id1 = update.getMessage().getFrom().getId();
-                    userState.put(chatId, UserState.NONE);
-                    if (authRepository.existsUserByChatId(chatId)){
+                    if (authRepository.existsUserByChatId(chatId)) {
                         User usersByChatId = authRepository.findUsersByChatId(chatId);
                         List<Kirim> kirims = usersByChatId.getKirims();
                         Double v = kirimService.lastMonthKirim(chatId);
@@ -169,8 +178,8 @@ public class Bot extends TelegramLongPollingBot {
                             textTo.append("📈Ushbu oydagi umumiy kirimlar: ").append(FNumberToText(totalMiqdorByUserId)).append(" so'm\n\n");
                             textTo.append("📈O'tgan oydagi umumiy kirimlar: ").append(FNumberToText(v)).append(" so'm");
                         }
-                        execute(sendMessage.sendMessage(textTo.toString(), chatId,  botCommand.searchKirimButton()));
-                    }else if ( authRepository.existsUserByChatId(id1)){
+                        execute(sendMessage.sendMessage(textTo.toString(), chatId, botCommand.searchKirimButton()));
+                    } else if (authRepository.existsUserByChatId(id1)) {
                         User usersByChatId = authRepository.findUsersByChatId(id1);
                         List<Kirim> kirims = usersByChatId.getKirims();
                         Double v = kirimService.lastMonthKirim(id1);
@@ -182,34 +191,34 @@ public class Bot extends TelegramLongPollingBot {
                             textTo.append("📈Ushbu oydagi umumiy kirimlar: ").append(FNumberToText(totalMiqdorByUserId)).append(" so'm\n\n");
                             textTo.append("📈O'tgan oydagi umumiy kirimlar: ").append(FNumberToText(v)).append(" so'm");
                         }
-                        execute(sendMessage.sendMessage(textTo.toString(), chatId,  botCommand.LinkToBot()));
-                    }else {
+                        execute(sendMessage.sendMessage(textTo.toString(), chatId, botCommand.LinkToBot()));
+                    } else {
                         execute(sendMessage.sendMessage("Avval ro'yhatdan o'ting", chatId));
                     }
                 }
-                if (text.equals("/chiqim")){
+                if (text.equals("/chiqim")) {
                     Long id1 = update.getMessage().getFrom().getId();
-                    if (authRepository.existsUserByChatId(chatId) ){
+                    if (authRepository.existsUserByChatId(chatId)) {
                         List<Chiqimlar> chiqimlarByUserChatId = chiqimlarRepository.getChiqimlarByUserChatId(chatId);
                         if (!chiqimlarByUserChatId.isEmpty()) {
                             Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(chatId);
                             Double lastmonthchiqim = chiqimlarService.lastmonthchiqim(chatId);
                             Double allMiqdorByChatId = dailyChiqimRepository.getAllMiqdorByChatId(chatId);
-                            execute(sendMessage.sendMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\nUmumiy harajatlar: " + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId,  botCommand.chiqimlar(chatId)));
+                            execute(sendMessage.sendMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\nUmumiy harajatlar: " + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId, botCommand.chiqimlar(chatId)));
                         } else {
-                            execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId,  botCommand.backToMenu("backToMenu")));
+                            execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId, botCommand.backToMenu("backToMenu")));
                         }
-                    }else if ( authRepository.existsUserByChatId(id1)){
+                    } else if (authRepository.existsUserByChatId(id1)) {
                         List<Chiqimlar> chiqimlarByUserChatId = chiqimlarRepository.getChiqimlarByUserChatId(id1);
                         if (!chiqimlarByUserChatId.isEmpty()) {
                             Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(id1);
                             Double lastmonthchiqim = chiqimlarService.lastmonthchiqim(id1);
                             Double allMiqdorByChatId = dailyChiqimRepository.getAllMiqdorByChatId(id1);
-                            execute(sendMessage.sendMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\nUmumiy harajatlar: " + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId,  botCommand.LinkToBot()));
+                            execute(sendMessage.sendMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\nUmumiy harajatlar: " + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId, botCommand.LinkToBot()));
                         } else {
-                            execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId,  botCommand.LinkToBot()));
+                            execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId, botCommand.LinkToBot()));
                         }
-                    }else {
+                    } else {
                         execute(sendMessage.sendMessage("Avval ro'yhatdan o'ting", chatId));
                     }
                 }
@@ -331,7 +340,7 @@ public class Bot extends TelegramLongPollingBot {
                                 Misol:
                                 08:30
                                 """, chatId));
-                    }else {
+                    } else {
                         Notification notification = notificationMap.get(chatId);
                         notification.setNotificationTime(text);
                         SendMessage sendMessage1 = userService.setNotification(text, chatId);
@@ -346,6 +355,31 @@ public class Bot extends TelegramLongPollingBot {
                     user.setName(text);
                     SendMessage endiTelefonRaqamniKiriting = sendMessage.sendMessage("Endi telefon raqamni kiriting", chatId, botCommand.phoneNumber());
                     execute(endiTelefonRaqamniKiriting);
+                }
+                if (state == UserState.WAITING_TRUE_CODE) {
+                    Notification notification = sendTo.get(chatId);
+                    notification.setTrueCode(text);
+                    if (authRepository.existsById(UUID.fromString(notification.getTrueCode()))) {
+                        execute(sendMessage.sendMessage("Qabul qilindi\nXabarni kiriting", chatId));
+                        userState.put(chatId, UserState.WAITING_MSG);
+                    }else {
+                        execute(sendMessage.sendMessage("This command is not for you", chatId));
+                    }
+                }
+                if (state == UserState.WAITING_MSG) {
+                    for (User user : authRepository.findAll()) {
+                        Notification notification = sendTo.get(chatId);
+                        notification.setNotificationTime(text);
+                        try {
+                            execute(sendMessage.sendMessage(user.getName() + " sizga yangi xabar\n\n" + notification.getNotificationTime(), user.getChatId()));
+                        } catch (TelegramApiException e) {
+                            if (e.getMessage().contains("bot blocked by the user")) {
+                                authRepository.delete(user);
+                            }
+                        }
+                    }
+                    sendTo.remove(chatId);
+                    userState.remove(chatId);
                 }
             } else if (message.hasContact()) {
                 if (state == UserState.WAITING_PHONE_NUMBER) {
@@ -450,8 +484,8 @@ public class Bot extends TelegramLongPollingBot {
                 execute(sendMessage.editMessage("Salom 👋" + usersByChatId.getName() + "\n " +
                                 "\nAccount ma'lumotlaringiz\n" + "Ism🧾: " + usersByChatId.getName() +
                                 "\nTelefon raqam📱: " + usersByChatId.getPhoneNumber() +
-                                "\nShu paytgacha daromad💸: " + FNumberToText(usersByChatId.getTotalPay()) +
-                                "\nBildirishnoma yuborish vahti: " + usersByChatId.getNotificationTime()
+                                "\nShu paytgacha daromad💸: " + FNumberToText(usersByChatId.getTotalPay())
+//                                "\nBildirishnoma yuborish vahti: " + usersByChatId.getNotificationTime()
                         , chatId, messageId, botCommand.setNotificationTime()));
             } else if (data.equals("searchForChiqim")) {
                 execute(sendMessage.sendMessage("Yil va oyni kiriting va men sizga siz xoxlagan vahtdagi harajatlaringizni chiqarib beraman 🗓️\n\nMisol uchun: 2026-12", chatId));
@@ -464,17 +498,15 @@ public class Bot extends TelegramLongPollingBot {
                         "08:30", chatId, messageId));
                 userState.put(chatId, UserState.WAITING_NOTIFICATION_TIME);
                 notificationMap.put(chatId, new Notification());
-            }else if (data.startsWith("deleteChiqim_")){
+            } else if (data.startsWith("deleteChiqim_")) {
                 Integer chiqimId = Integer.parseInt(data.replace("deleteChiqim_", ""));
                 chiqimlarService.deleteDailyChqimlar(chiqimId);
                 execute(sendMessage.editMessage("Muvaffaqiyatli o'chirildi", chatId, messageId, botCommand.backToMenu("chiqim")));
-            }
-            else if (data.equals("backToMenu")) {
+            } else if (data.equals("backToMenu")) {
                 execute(sendMessage.editMessage("Asosiy bo'lim", chatId, messageId, botCommand.menu()));
             }
         }
     }
-
 
 
     public String FNumberToText(Double miqdor) {
@@ -486,27 +518,35 @@ public class Bot extends TelegramLongPollingBot {
         return format.format(miqdor);
     }
 
-    @SneakyThrows
-    @Scheduled(cron = "0 * * * * *", zone = "Asia/Tashkent")
-    public void checkNotification() {
-        LocalTime localTime = LocalTime.now();
-        String format = String.format(
-                "%02d:%02d",
-                localTime.getHour(),
-                localTime.getMinute()
-        );
-        for (User user : authRepository.findAll()) {
-            if (format.equals(user.getNotificationTime())) {
-                execute(sendMessage.sendMessage("👋Salom " + user.getName() + "\n\nPullaringizni hisobini olish vahti keldi😎💸", user.getChatId(), botCommand.menu()));
-            }
-        }
-    }
+//    @Scheduled(cron = "0 * * * * *", zone = "Asia/Tashkent")
+//    public void checkNotification() {
+//        LocalTime localTime = LocalTime.now();
+//        String format = String.format(
+//                "%02d:%02d",
+//                localTime.getHour(),
+//                localTime.getMinute()
+//        );
+//        for (User user : authRepository.findAll()) {
+//            if (format.equals(user.getNotificationTime())) {
+//                try {
+//                    execute(sendMessage.sendMessage("👋Salom " + user.getName() + "\n\nPullaringizni hisobini olish vahti keldi😎💸", user.getChatId(), botCommand.menu()));
+//                } catch (TelegramApiException e) {
+//                    if (e.getMessage().contains("bot was blocked by the user")) {
+//                        authRepository.delete(user);
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     @Scheduled(cron = "0 0 12 * * *", zone = "Asia/Tashkent")
-    @SneakyThrows
-    public void senMsgToGroup(){
+    public void senMsgToGroup() {
         for (Group group : groupService.findAll()) {
-            execute(sendMessage.sendMessage("👋 Hayrli kun " + group.getGroupName() + " a'zolari\n" + " \uD83C\uDF7D Tushlik vahti bo'ldi \uD83D\uDE04 \n\nShu bilan birgalikda bugungi harajatlaringizni kiritishni unutmang😎", group.getGroupId(), botCommand.LinkToBot()));
+            try {
+                execute(sendMessage.sendMessage("👋 Hayrli kun " + group.getGroupName() + " a'zolari\n" + " \uD83C\uDF7D Tushlik vahti bo'ldi \uD83D\uDE04 \n\nShu bilan birgalikda bugungi harajatlaringizni kiritishni unutmang😎", group.getGroupId(), botCommand.LinkToBot()));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
         }
     }
 }

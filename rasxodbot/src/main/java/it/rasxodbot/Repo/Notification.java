@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class Notification {
 
     String notificationTime;
+    String trueCode;
 }

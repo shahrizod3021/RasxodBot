@@ -163,17 +163,17 @@ public class BotCommand {
    public InlineKeyboardMarkup setNotificationTime(){
        InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-       List<InlineKeyboardButton> currentRow = new ArrayList<>();
+//       List<InlineKeyboardButton> currentRow = new ArrayList<>();
        List<InlineKeyboardButton> currentRow1 = new ArrayList<>();
-       InlineKeyboardButton button = new InlineKeyboardButton();
+//       InlineKeyboardButton button = new InlineKeyboardButton();
        InlineKeyboardButton button1 = new InlineKeyboardButton();
-       button.setText("O'zgartirish");
-       button.setCallbackData("setNotification");
+//       button.setText("O'zgartirish");
+//       button.setCallbackData("setNotification");
        button1.setText("Orqaga");
        button1.setCallbackData("backToMenu");
-       currentRow.add(button);
+//       currentRow.add(button);
        currentRow1.add(button1);
-       rows.add(currentRow);
+//       rows.add(currentRow);
        rows.add(currentRow1);
        inlineKeyboardMarkup.setKeyboard(rows);
        return inlineKeyboardMarkup;

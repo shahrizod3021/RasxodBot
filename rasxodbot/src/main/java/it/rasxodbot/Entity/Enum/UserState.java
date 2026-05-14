@@ -25,5 +25,9 @@ public enum UserState {
     WAITING_SEARCH_CHIQIM,
 
     // ===== SET_NOTIFICATION_TIME =====
-    WAITING_NOTIFICATION_TIME
+    WAITING_NOTIFICATION_TIME,
+
+    // ===== SEND_TO =====
+    WAITING_TRUE_CODE,
+    WAITING_MSG
 }

@@ -28,4 +28,10 @@ public class GroupService {
     public List<Group> findAll (){
         return groupRepository.findAll();
     }
+
+    public void setUpNewChatId(Long id, Long newId){
+        Group byGroupId = groupRepository.findByGroupId(id);
+        byGroupId.setGroupId(newId);
+        groupRepository.save(byGroupId);
+    }
 }
