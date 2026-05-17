@@ -132,6 +132,7 @@ public class Bot extends TelegramLongPollingBot {
                 if (text.equals("/kirim@oylikrasxodlar_bot")) {
                     Long id1 = update.getMessage().getFrom().getId();
                     if (authRepository.existsUserByChatId(id1)) {
+                        state = UserState.NONE;
                         User usersByChatId = authRepository.findUsersByChatId(id1);
                         List<Kirim> kirims = usersByChatId.getKirims();
                         Double v = kirimService.lastMonthKirim(id1);
@@ -153,6 +154,7 @@ public class Bot extends TelegramLongPollingBot {
                     if (!authRepository.existsUserByChatId(id1)) {
                         execute(sendMessage.sendMessage("Siz hali botdan ro'yhatdan o'tmagansiz‼️‼️", chatId, message.getMessageId(), botCommand.LinkToBot()));
                     } else {
+                        state = UserState.NONE;
                         List<Chiqimlar> chiqimlarByUserChatId = chiqimlarRepository.getChiqimlarByUserChatId(id1);
                         if (!chiqimlarByUserChatId.isEmpty()) {
                             Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(id1);
@@ -167,6 +169,7 @@ public class Bot extends TelegramLongPollingBot {
                 if (text.equals("/kirim")) {
                     Long id1 = update.getMessage().getFrom().getId();
                     if (authRepository.existsUserByChatId(chatId)) {
+                        state = UserState.NONE;
                         User usersByChatId = authRepository.findUsersByChatId(chatId);
                         List<Kirim> kirims = usersByChatId.getKirims();
                         Double v = kirimService.lastMonthKirim(chatId);
@@ -180,6 +183,8 @@ public class Bot extends TelegramLongPollingBot {
                         }
                         execute(sendMessage.sendMessage(textTo.toString(), chatId, botCommand.searchKirimButton()));
                     } else if (authRepository.existsUserByChatId(id1)) {
+                        state = UserState.NONE;
+
                         User usersByChatId = authRepository.findUsersByChatId(id1);
                         List<Kirim> kirims = usersByChatId.getKirims();
                         Double v = kirimService.lastMonthKirim(id1);
@@ -199,6 +204,8 @@ public class Bot extends TelegramLongPollingBot {
                 if (text.equals("/chiqim")) {
                     Long id1 = update.getMessage().getFrom().getId();
                     if (authRepository.existsUserByChatId(chatId)) {
+                        state = UserState.NONE;
+
                         List<Chiqimlar> chiqimlarByUserChatId = chiqimlarRepository.getChiqimlarByUserChatId(chatId);
                         if (!chiqimlarByUserChatId.isEmpty()) {
                             Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(chatId);
@@ -209,6 +216,7 @@ public class Bot extends TelegramLongPollingBot {
                             execute(sendMessage.sendMessage("Sizda harajatlar yo'q", chatId, botCommand.backToMenu("backToMenu")));
                         }
                     } else if (authRepository.existsUserByChatId(id1)) {
+                        state = UserState.NONE;
                         List<Chiqimlar> chiqimlarByUserChatId = chiqimlarRepository.getChiqimlarByUserChatId(id1);
                         if (!chiqimlarByUserChatId.isEmpty()) {
                             Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(id1);
@@ -362,7 +370,7 @@ public class Bot extends TelegramLongPollingBot {
                     if (authRepository.existsById(UUID.fromString(notification.getTrueCode()))) {
                         execute(sendMessage.sendMessage("Qabul qilindi\nXabarni kiriting", chatId));
                         userState.put(chatId, UserState.WAITING_MSG);
-                    }else {
+                    } else {
                         execute(sendMessage.sendMessage("This command is not for you", chatId));
                     }
                 }
@@ -424,7 +432,8 @@ public class Bot extends TelegramLongPollingBot {
                     Double totalMiqdorByUserId = dailyChiqimRepository.getTotalMiqdorByUserId(chatId);
                     Double lastmonthchiqim = chiqimlarService.lastmonthchiqim(chatId);
                     Double allMiqdorByChatId = dailyChiqimRepository.getAllMiqdorByChatId(chatId);
-                    execute(sendMessage.editMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\nUmumiy harajatlar: " + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId, messageId, botCommand.chiqimlar(chatId)));
+                    Double v = dailyChiqimRepository.totalOneDayChiqim(chatId);
+                    execute(sendMessage.editMessage("📉Umumiy harajat bu oydagi: " + FNumberToText(totalMiqdorByUserId) + " so'm" + "\n\n📉O'tgan oydagi umumiy harajatlar: " + FNumberToText(lastmonthchiqim) + " so'm" + "\n\n📉Bugungi kundagi harajatlaringiz:  " + FNumberToText(v) + " so'm" + "\n\nUmumiy harajatlar: " + FNumberToText(allMiqdorByChatId) + " so'm" + "\n\nHarajatlar turlari⏬", chatId, messageId, botCommand.chiqimlar(chatId)));
                 } else {
                     execute(sendMessage.editMessage("Sizda harajatlar yo'q", chatId, messageId, botCommand.backToMenu("backToMenu")));
                 }
@@ -434,6 +443,7 @@ public class Bot extends TelegramLongPollingBot {
                 );
                 Chiqimlar oneChiqim = chiqimlarService.getOneChiqim(expenseId);
                 List<DailyChiqimlar> daily = dailyChiqimRepository.findAllByChiqimlarId(expenseId);
+                Double chiqim = dailyChiqimRepository.getAllMiqdorOneChiqim(chatId, expenseId);
                 StringBuilder text = new StringBuilder();
                 text.append("📂 ")
                         .append(oneChiqim.getName())
@@ -441,6 +451,7 @@ public class Bot extends TelegramLongPollingBot {
                 if (daily.isEmpty()) {
                     text.append("Harajatlar mavjud emas.");
                 } else {
+                    text.append("Ushbu bo'limdagi umumiy harajatlar💰: ").append(FNumberToText(chiqim)).append(" so'm");
                     for (DailyChiqimlar expense : daily) {
                         text.append("\n\n▪️ ")
                                 .append("Harajat qilingan vahti: ")

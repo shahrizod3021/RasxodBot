@@ -23,16 +23,37 @@ public interface DailyChiqimRepository extends JpaRepository<DailyChiqimlar, Int
             @Param("chatId") Long chatId);
 
     @Query("""
-       select COALESCE(sum(d.miqdor), 0)
-       from DailyChiqimlar d
-       where d.user.chatId = :chatId
-       and d.vahti between :startDate and :endDate
-       """)
+            select COALESCE(sum(d.miqdor), 0)
+            from DailyChiqimlar d
+            where user.chatId = :chatId
+                 and EXTRACT(DAY FROM d.vahti) =  EXTRACT(DAY FROM CURRENT_DATE)
+                    and EXTRACT(MONTH FROM d.vahti) = EXTRACT(MONTH FROM CURRENT_DATE)
+                        and EXTRACT(YEAR FROM d.vahti) = EXTRACT(YEAR FROM CURRENT_DATE)
+            """)
+    Double totalOneDayChiqim(Long chatId);
+
+    @Query("""
+            select COALESCE(sum(d.miqdor), 0)
+            from DailyChiqimlar d
+            where d.user.chatId = :chatId
+            and d.vahti between :startDate and :endDate
+            """)
     Double getTotalMiqdorByDateBetween(
             @Param("chatId") Long chatId,
             @Param("startDate") Date startDate,
             @Param("endDate") Date endDate
     );
+
+    @Query("""
+            select COALESCE(sum(d.miqdor), 0)
+            from DailyChiqimlar d
+            where d.user.chatId = :chatId
+            and d.chiqimlar.id = :id
+              and EXTRACT(MONTH FROM d.vahti) = EXTRACT(MONTH FROM CURRENT_DATE)
+                        and EXTRACT(YEAR FROM d.vahti) = EXTRACT(YEAR FROM CURRENT_DATE)
+            """)
+    Double getAllMiqdorOneChiqim(@Param("chatId") Long chatId, @Param("id") Integer id);
+
     @Query("""
             select COALESCE(sum(d.miqdor), 0)
             from DailyChiqimlar d
@@ -54,16 +75,16 @@ public interface DailyChiqimRepository extends JpaRepository<DailyChiqimlar, Int
     @Transactional
     @Modifying
     @Query("""
-       delete from DailyChiqimlar d
-       where d.chiqimlar.id = :chiqimId
-       """)
+            delete from DailyChiqimlar d
+            where d.chiqimlar.id = :chiqimId
+            """)
     void deleteDailyChiqim(@Param("chiqimId") Integer id);
 
     @Query("""
-       select count(d) > 0
-       from DailyChiqimlar d
-       where d.chiqimlar.id = :chiqimId
-       """)
+            select count(d) > 0
+            from DailyChiqimlar d
+            where d.chiqimlar.id = :chiqimId
+            """)
     Boolean existsByChiqimId(
             @Param("chiqimId") Integer chiqimId);
 }
