@@ -2,6 +2,8 @@ package it.rasxodbot.Repositories;
 
 import it.rasxodbot.Entity.DailyChiqimlar;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -63,14 +65,13 @@ public interface DailyChiqimRepository extends JpaRepository<DailyChiqimlar, Int
     Double getAllMiqdorByChatId(Long chatId);
 
     @Query("""
-            select d
-            from DailyChiqimlar d
-            where d.chiqimlar.id = :id
-            and EXTRACT(MONTH FROM d.vahti) = EXTRACT(MONTH FROM CURRENT_DATE)
-            and EXTRACT(YEAR FROM d.vahti) = EXTRACT(YEAR FROM CURRENT_DATE)
-            order by d.vahti desc
-            """)
-    List<DailyChiqimlar> findAllByChiqimlarId(Integer id);
+        select d
+        from DailyChiqimlar d
+        where d.chiqimlar.id = :id
+        and EXTRACT(MONTH FROM d.vahti) = EXTRACT(MONTH FROM CURRENT_DATE)
+        and EXTRACT(YEAR FROM d.vahti) = EXTRACT(YEAR FROM CURRENT_DATE)
+        """)
+    Page<DailyChiqimlar> findAllByChiqimlarId(@Param("id") Integer id, Pageable pageable);
 
     @Transactional
     @Modifying

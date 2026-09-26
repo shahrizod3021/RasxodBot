@@ -106,6 +106,38 @@ public class BotCommand {
         return inlineKeyboardMarkup;
     }
 
+    public InlineKeyboardMarkup createPaginationKeyboard(Integer expenseId, int currentPage, int totalPages, InlineKeyboardMarkup existingMarkup) {
+        List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+
+        // 1. Oldingi / Keyingi tugmalari qatori
+        if (totalPages > 1) {
+            List<InlineKeyboardButton> navRow = new ArrayList<>();
+
+            if (currentPage > 0) {
+                InlineKeyboardButton prevBtn = new InlineKeyboardButton();
+                prevBtn.setText("⬅️ Oldingi");
+                prevBtn.setCallbackData("expense_" + expenseId + "_" + (currentPage - 1));
+                navRow.add(prevBtn);
+            }
+
+            if (currentPage < totalPages - 1) {
+                InlineKeyboardButton nextBtn = new InlineKeyboardButton();
+                nextBtn.setText("Keyingi ➡️");
+                nextBtn.setCallbackData("expense_" + expenseId + "_" + (currentPage + 1));
+                navRow.add(nextBtn);
+            }
+            keyboard.add(navRow);
+        }
+
+        // 2. Sizning eski addDailyChiqim() tugmalaringizni ham saqlab qolamiz
+        if (existingMarkup != null && existingMarkup.getKeyboard() != null) {
+            keyboard.addAll(existingMarkup.getKeyboard());
+        }
+
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        markup.setKeyboard(keyboard);
+        return markup;
+    }
     public InlineKeyboardMarkup chiqimlar(Long chatId){
         InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rows = new ArrayList<>();

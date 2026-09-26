@@ -14,13 +14,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageReplyMarkup;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiRequestException;
 
@@ -437,22 +444,41 @@ public class Bot extends TelegramLongPollingBot {
                 } else {
                     execute(sendMessage.editMessage("Sizda harajatlar yo'q", chatId, messageId, botCommand.backToMenu("backToMenu")));
                 }
-            } else if (data.startsWith("expense_")) {
-                Integer expenseId = Integer.parseInt(
-                        data.replace("expense_", "")
-                );
+            }else if (data.startsWith("expense_")) {
+                // 1. data'dan expenseId va page raqamini ajratib olamiz
+                // Kutilayotgan format: expense_12 yoki expense_12_0 (default page = 0)
+                String[] parts = data.split("_");
+                Integer expenseId = Integer.parseInt(parts[1]);
+                int page = (parts.length > 2) ? Integer.parseInt(parts[2]) : 0;
+                int pageSize = 5; // Har bir sahifada nechta harajat ko'rinsin (masalan, 5 ta)
+
                 Chiqimlar oneChiqim = chiqimlarService.getOneChiqim(expenseId);
-                List<DailyChiqimlar> daily = dailyChiqimRepository.findAllByChiqimlarId(expenseId);
+
+                // 2. Bazadan faqat kerakli sahifadagi ma'lumotlarni tortamiz
+                Pageable pageable = PageRequest.of(page, pageSize, Sort.by("id").descending());
+                Page<DailyChiqimlar> dailyPage = dailyChiqimRepository.findAllByChiqimlarId(expenseId, pageable);
+
                 Double chiqim = dailyChiqimRepository.getAllMiqdorOneChiqim(chatId, expenseId);
+                if (chiqim == null) chiqim = 0.0;
+
                 StringBuilder text = new StringBuilder();
                 text.append("📂 ")
                         .append(oneChiqim.getName())
                         .append(" bo‘limidagi harajatlar:\n\nEslatma‼️‼️: faqatgina shu oydagi harajatlarni ro'yhatini ko'ra olasiz 🗓️\n\n");
-                if (daily.isEmpty()) {
+
+                if (dailyPage.isEmpty()) {
                     text.append("Harajatlar mavjud emas.");
                 } else {
-                    text.append("Ushbu bo'limdagi umumiy harajatlar💰: ").append(FNumberToText(chiqim)).append(" so'm");
-                    for (DailyChiqimlar expense : daily) {
+                    text.append("Ushbu bo'limdagi umumiy harajatlar💰: ")
+                            .append(FNumberToText(chiqim))
+                            .append(" so'm\n\n")
+                            .append("📄 **Sahifa: ")
+                            .append(page + 1)
+                            .append(" / ")
+                            .append(dailyPage.getTotalPages())
+                            .append("**");
+
+                    for (DailyChiqimlar expense : dailyPage.getContent()) {
                         text.append("\n\n▪️ ")
                                 .append("Harajat qilingan vahti: ")
                                 .append(expense.getVahti().toString(), 0, 19)
@@ -464,7 +490,12 @@ public class Bot extends TelegramLongPollingBot {
                                 .append(expense.getDescription());
                     }
                 }
-                execute(sendMessage.editMessage(text.toString(), chatId, messageId, botCommand.addDailyChiqim(expenseId)));
+
+                // 3. Dynamic Tugmalarni shakllantirish (Oldingi / Keyingi + addDailyChiqim)
+                InlineKeyboardMarkup markup = botCommand.createPaginationKeyboard(expenseId, page, dailyPage.getTotalPages(), botCommand.addDailyChiqim(expenseId));
+
+                // 4. Xabarni yuborish/tahrirlash
+                execute(sendMessage.editMessage(text.toString(), chatId, messageId, markup));
             } else if (data.startsWith("daily_")) {
                 dailyChiqimlarMap.put(chatId, new DailyChiqimlar());
                 userState.put(chatId, UserState.WAITING_DAILY_MIQDOR);
@@ -510,10 +541,40 @@ public class Bot extends TelegramLongPollingBot {
                 userState.put(chatId, UserState.WAITING_NOTIFICATION_TIME);
                 notificationMap.put(chatId, new Notification());
             } else if (data.startsWith("deleteChiqim_")) {
-                Integer chiqimId = Integer.parseInt(data.replace("deleteChiqim_", ""));
-                chiqimlarService.deleteDailyChqimlar(chiqimId);
-                execute(sendMessage.editMessage("Muvaffaqiyatli o'chirildi", chatId, messageId, botCommand.backToMenu("chiqim")));
-            } else if (data.equals("backToMenu")) {
+                if (data.endsWith("_confirm")) {
+                    // "Ha, o'chirilsin" bosilganda
+                    Integer chiqimId = Integer.parseInt(data.replace("deleteChiqim_", "").replace("_confirm", ""));
+                    chiqimlarService.deleteDailyChqimlar(chiqimId);
+                    execute(sendMessage.editMessage("Muvaffaqiyatli o'chirildi", chatId, messageId, botCommand.backToMenu("chiqim")));
+
+                } else {
+                    // Birinchi marta "O'chirish" bosilganda — Inline tugmalarni "Ha / Yo'q" ga o'zgartirish
+                    Integer chiqimId = Integer.parseInt(data.replace("deleteChiqim_", ""));
+
+                    InlineKeyboardMarkup confirmMarkup = new InlineKeyboardMarkup();
+                    List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                    List<InlineKeyboardButton> row = new ArrayList<>();
+
+                    InlineKeyboardButton yesBtn = new InlineKeyboardButton();
+                    yesBtn.setText("✅ Ha, o'chirishni tasdiqlayman");
+                    yesBtn.setCallbackData("deleteChiqim_" + chiqimId + "_confirm");
+
+                    InlineKeyboardButton cancelBtn = new InlineKeyboardButton();
+                    cancelBtn.setText("❌ Bekor qilish");
+                    cancelBtn.setCallbackData("expense_" + chiqimId);
+
+                    row.add(yesBtn);
+                    row.add(cancelBtn);
+                    rows.add(row);
+                    confirmMarkup.setKeyboard(rows);
+
+                    EditMessageReplyMarkup editMarkup = new EditMessageReplyMarkup();
+                    editMarkup.setChatId(chatId.toString());
+                    editMarkup.setMessageId(messageId);
+                    editMarkup.setReplyMarkup(confirmMarkup);
+                    execute(editMarkup);
+                }
+            }else if (data.equals("backToMenu")) {
                 execute(sendMessage.editMessage("Asosiy bo'lim", chatId, messageId, botCommand.menu()));
             }
         }
